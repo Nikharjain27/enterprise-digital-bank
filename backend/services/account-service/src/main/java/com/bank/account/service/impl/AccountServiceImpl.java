@@ -4,12 +4,20 @@ import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.entity.Account;
 import com.bank.account.enums.AccountStatus;
+import com.bank.account.exception.BaseException;
 import com.bank.account.repository.AccountRepository;
 import com.bank.account.service.AccountService;
 import com.bank.account.util.AccountNumberGenerator;
 import com.bank.account.util.IfscGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.bank.account.transaction.dto.TransactionRequest;
+import com.bank.account.transaction.dto.TransactionResponse;
+import com.bank.account.transaction.entity.BankTransaction;
+import com.bank.account.transaction.enums.TransactionType;
+import com.bank.account.transaction.repository.BankTransactionRepository;
+import com.bank.account.util.TransactionReferenceGenerator;
+import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,6 +31,11 @@ public class AccountServiceImpl implements AccountService {
     private final AccountNumberGenerator accountNumberGenerator;
 
     private final IfscGenerator ifscGenerator;
+
+    private final BankTransactionRepository bankTransactionRepository;
+
+    private final TransactionReferenceGenerator
+            transactionReferenceGenerator;
 
     @Override
     public AccountResponse createAccount(
@@ -70,6 +83,132 @@ public class AccountServiceImpl implements AccountService {
                 .currency(savedAccount.getCurrency())
                 .ifscCode(savedAccount.getIfscCode())
                 .branchCode(savedAccount.getBranchCode())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TransactionResponse deposit(
+            TransactionRequest request
+    ) {
+
+        Account account =
+                accountRepository
+                        .findByAccountNumberForUpdate(
+                                request.getAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Account not found"
+                                )
+                        );
+
+        account.setLedgerBalance(
+                account.getLedgerBalance()
+                        .add(request.getAmount())
+        );
+
+        account.setAvailableBalance(
+                account.getAvailableBalance()
+                        .add(request.getAmount())
+        );
+
+        account.setUpdatedAt(LocalDateTime.now());
+
+        accountRepository.save(account);
+
+        String reference =
+                transactionReferenceGenerator
+                        .generateReference();
+
+        BankTransaction transaction =
+                BankTransaction.builder()
+                        .accountNumber(account.getAccountNumber())
+                        .transactionType(TransactionType.DEPOSIT)
+                        .amount(request.getAmount())
+                        .referenceNumber(reference)
+                        .description(request.getDescription())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+        bankTransactionRepository.save(transaction);
+
+        return TransactionResponse.builder()
+                .referenceNumber(reference)
+                .accountNumber(account.getAccountNumber())
+                .transactionType(TransactionType.DEPOSIT)
+                .amount(request.getAmount())
+                .updatedBalance(account.getAvailableBalance())
+                .message("Deposit successful")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TransactionResponse withdraw(
+            TransactionRequest request
+    ) {
+
+        Account account =
+                accountRepository
+                        .findByAccountNumberForUpdate(
+                                request.getAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
+                                        "Account not found"
+                                )
+                        );
+
+        if (account.getAvailableBalance()
+                .compareTo(request.getAmount()) < 0) {
+
+            throw new BaseException(
+                    "INSUFFICIENT_BALANCE",
+                    "Insufficient balance"
+            );
+        }
+
+        account.setLedgerBalance(
+                account.getLedgerBalance()
+                        .subtract(request.getAmount())
+        );
+
+        account.setAvailableBalance(
+                account.getAvailableBalance()
+                        .subtract(request.getAmount())
+        );
+
+        account.setUpdatedAt(LocalDateTime.now());
+
+        accountRepository.save(account);
+
+        String reference =
+                transactionReferenceGenerator
+                        .generateReference();
+
+        BankTransaction transaction =
+                BankTransaction.builder()
+                        .accountNumber(account.getAccountNumber())
+                        .transactionType(TransactionType.WITHDRAWAL)
+                        .amount(request.getAmount())
+                        .referenceNumber(reference)
+                        .description(request.getDescription())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+        bankTransactionRepository.save(transaction);
+
+        return TransactionResponse.builder()
+                .referenceNumber(reference)
+                .accountNumber(account.getAccountNumber())
+                .transactionType(TransactionType.WITHDRAWAL)
+                .amount(request.getAmount())
+                .updatedBalance(account.getAvailableBalance())
+                .message("Withdrawal successful")
                 .build();
     }
 }

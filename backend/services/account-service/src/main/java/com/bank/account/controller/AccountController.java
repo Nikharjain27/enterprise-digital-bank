@@ -3,6 +3,8 @@ package com.bank.account.controller;
 import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.service.AccountService;
+import com.bank.account.transaction.dto.TransactionRequest;
+import com.bank.account.transaction.dto.TransactionResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,26 @@ public class AccountController {
         return new ResponseEntity<>(
                 accountService.createAccount(request),
                 HttpStatus.CREATED
+        );
+    }
+
+    @PostMapping("/deposit")
+    public ResponseEntity<TransactionResponse> deposit(
+            @Valid @RequestBody TransactionRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.deposit(request)
+        );
+    }
+
+    @PostMapping("/withdraw")
+    public ResponseEntity<TransactionResponse> withdraw(
+            @Valid @RequestBody TransactionRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.withdraw(request)
         );
     }
 }
