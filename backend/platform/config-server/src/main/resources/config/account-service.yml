@@ -1,0 +1,11 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bankdb
+    username: bankuser
+    password: bankpassword
+
+custom:
+  message: Account Service Config Loaded Successfully
