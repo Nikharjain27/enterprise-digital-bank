@@ -1,0 +1,32 @@
+# IntelliJ
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# Mac
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Maven
+target/
+
+# Node
+node_modules/
+
+# Environment
+.env
+
+# Build
+dist/
+build/
+
+# Coverage
+coverage/
+
+# Docker
+*.pid
