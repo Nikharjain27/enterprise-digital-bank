@@ -23,6 +23,8 @@ import com.bank.account.transaction.repository.BankTransactionRepository;
 import com.bank.account.util.AccountNumberGenerator;
 import com.bank.account.util.IfscGenerator;
 import com.bank.account.util.TransactionReferenceGenerator;
+import com.bank.account.dto.request.ReverseTransferRequest;
+import com.bank.account.transaction.enums.TransactionStatus;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -581,11 +584,15 @@ public class AccountServiceImpl implements AccountService {
                         .accountNumber(
                                 sourceAccount.getAccountNumber()
                         )
+                        .toAccountNumber(
+                                destinationAccount.getAccountNumber()
+                        )
                         .transactionType(
                                 TransactionType.TRANSFER
                         )
                         .amount(request.getAmount())
                         .referenceNumber(reference)
+                        .status(TransactionStatus.SUCCESS)
                         .description(
                                 "Transfer to "
                                         + destinationAccount
@@ -594,7 +601,6 @@ public class AccountServiceImpl implements AccountService {
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
-
         BankTransaction creditTransaction =
                 BankTransaction.builder()
                         .accountNumber(
@@ -927,5 +933,198 @@ public class AccountServiceImpl implements AccountService {
                                 .build()
                 )
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public String reverseTransfer(
+            ReverseTransferRequest request
+    ) {
+
+        /*
+         * FIND ORIGINAL TRANSACTION
+         */
+        BankTransaction originalTransaction =
+                bankTransactionRepository
+                        .findByReferenceNumberAndAccountNumber(
+                                request.getReferenceNumber(),
+                                request.getSourceAccount()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Original transaction not found"
+                                )
+                        );
+
+        /*
+         * ALLOW ONLY TRANSFER REVERSAL
+         */
+        if (
+                originalTransaction.getTransactionType()
+                        != TransactionType.TRANSFER
+        ) {
+
+            throw new RuntimeException(
+                    "Only transfer transactions can be reversed"
+            );
+        }
+
+        /*
+         * PREVENT DOUBLE REVERSAL
+         */
+        boolean alreadyReversed =
+                bankTransactionRepository
+                        .existsByOriginalTransactionReference(
+                                originalTransaction
+                                        .getReferenceNumber()
+                        );
+
+        if (alreadyReversed) {
+
+            throw new RuntimeException(
+                    "Transaction already reversed"
+            );
+        }
+
+        /*
+         * FIND ACCOUNTS
+         */
+        Account fromAccount =
+                accountRepository
+                        .findByAccountNumber(
+                                originalTransaction
+                                        .getToAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Destination account not found"
+                                )
+                        );
+
+        Account toAccount =
+                accountRepository
+                        .findByAccountNumber(
+                                originalTransaction
+                                        .getAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Source account not found"
+                                )
+                        );
+
+        /*
+         * CHECK BALANCE
+         */
+        if (
+                fromAccount.getAvailableBalance()
+                        .compareTo(
+                                originalTransaction.getAmount()
+                        ) < 0
+        ) {
+
+            throw new RuntimeException(
+                    "Insufficient balance for reversal"
+            );
+        }
+
+        /*
+         * REVERSE BALANCES
+         */
+        fromAccount.setLedgerBalance(
+                fromAccount.getLedgerBalance()
+                        .subtract(
+                                originalTransaction.getAmount()
+                        )
+        );
+
+        fromAccount.setAvailableBalance(
+                fromAccount.getAvailableBalance()
+                        .subtract(
+                                originalTransaction.getAmount()
+                        )
+        );
+
+        toAccount.setLedgerBalance(
+                toAccount.getLedgerBalance()
+                        .add(
+                                originalTransaction.getAmount()
+                        )
+        );
+
+        toAccount.setAvailableBalance(
+                toAccount.getAvailableBalance()
+                        .add(
+                                originalTransaction.getAmount()
+                        )
+        );
+
+        accountRepository.save(fromAccount);
+
+        accountRepository.save(toAccount);
+
+        /*
+         * CREATE REVERSAL TRANSACTION
+         */
+        BankTransaction reversalTransaction =
+                new BankTransaction();
+
+        reversalTransaction.setAccountNumber(
+                fromAccount.getAccountNumber()
+        );
+
+        reversalTransaction.setToAccountNumber(
+                toAccount.getAccountNumber()
+        );
+
+        reversalTransaction.setAmount(
+                originalTransaction.getAmount()
+        );
+
+        reversalTransaction.setDescription(
+                "REVERSAL : "
+                        + originalTransaction
+                        .getReferenceNumber()
+        );
+
+        reversalTransaction.setTransactionType(
+                TransactionType.REVERSAL
+        );
+
+        reversalTransaction.setStatus(
+                TransactionStatus.SUCCESS
+        );
+
+        reversalTransaction.setReferenceNumber(
+                UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 16)
+                        .toUpperCase()
+        );
+
+        reversalTransaction
+                .setOriginalTransactionReference(
+                        originalTransaction
+                                .getReferenceNumber()
+                );
+
+        reversalTransaction
+                .setReversalTransaction(true);
+
+        bankTransactionRepository
+                .save(reversalTransaction);
+
+        /*
+         * UPDATE ORIGINAL STATUS
+         */
+        originalTransaction.setStatus(
+                TransactionStatus.REVERSED
+        );
+
+        bankTransactionRepository
+                .save(originalTransaction);
+
+        return "Transfer reversed successfully";
     }
 }
