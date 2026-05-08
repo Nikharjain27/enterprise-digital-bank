@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface BankTransactionRepository
         extends JpaRepository<BankTransaction, Long> {
@@ -50,5 +51,15 @@ public interface BankTransactionRepository
 
             @Param("end")
             LocalDateTime end
+    );
+
+    Optional<BankTransaction>
+    findByReferenceNumberAndAccountNumber(
+            String referenceNumber,
+            String accountNumber
+    );
+
+    boolean existsByOriginalTransactionReference(
+            String referenceNumber
     );
 }

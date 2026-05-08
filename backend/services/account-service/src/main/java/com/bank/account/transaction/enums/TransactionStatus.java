@@ -1,4 +1,4 @@
-package com.bank.account.enums;
+package com.bank.account.transaction.enums;
 
 public enum TransactionStatus {
 
