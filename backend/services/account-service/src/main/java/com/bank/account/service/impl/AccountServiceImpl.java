@@ -6,6 +6,7 @@ import com.bank.account.beneficiary.entity.Beneficiary;
 import com.bank.account.beneficiary.repository.BeneficiaryRepository;
 import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
+import com.bank.account.dto.request.RefundRequest;
 import com.bank.account.entity.Account;
 import com.bank.account.enums.AccountStatus;
 import com.bank.account.exception.BaseException;
@@ -1127,4 +1128,238 @@ public class AccountServiceImpl implements AccountService {
 
         return "Transfer reversed successfully";
     }
+
+    @Override
+    @Transactional
+    public String refundTransfer(RefundRequest request) {
+        /*
+         * FIND ORIGINAL TRANSACTION
+         */
+        BankTransaction originalTransaction =
+                bankTransactionRepository
+                        .findByReferenceNumberAndAccountNumber(
+                                request.getReferenceNumber(),
+                                request.getSourceAccount()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Original transaction not found"
+                                )
+                        );
+
+        /*
+         * ALLOW ONLY TRANSFER REFUND
+         */
+        if (
+                originalTransaction.getTransactionType()
+                        != TransactionType.TRANSFER
+        ) {
+
+            throw new RuntimeException(
+                    "Only transfer transactions are refundable"
+            );
+        }
+
+        /*
+         * CALCULATE REMAINING REFUNDABLE AMOUNT
+         */
+        BigDecimal alreadyRefunded =
+                originalTransaction
+                        .getRefundedAmount() == null
+                        ? BigDecimal.ZERO
+                        : originalTransaction
+                        .getRefundedAmount();
+
+        BigDecimal remainingRefundable =
+                originalTransaction.getAmount()
+                        .subtract(alreadyRefunded);
+
+        /*
+         * VALIDATE REFUND AMOUNT
+         */
+        if (
+                request.getRefundAmount()
+                        .compareTo(
+                                remainingRefundable
+                        ) > 0
+        ) {
+
+            throw new RuntimeException(
+                    "Refund amount exceeds remaining refundable amount"
+            );
+        }
+
+        /*
+         * FIND ACCOUNTS
+         */
+        Account refundFromAccount =
+                accountRepository
+                        .findByAccountNumber(
+                                originalTransaction
+                                        .getToAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Refund source account not found"
+                                )
+                        );
+
+        Account refundToAccount =
+                accountRepository
+                        .findByAccountNumber(
+                                originalTransaction
+                                        .getAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Refund destination account not found"
+                                )
+                        );
+
+        /*
+         * CHECK REFUND SOURCE BALANCE
+         */
+        if (
+                refundFromAccount
+                        .getAvailableBalance()
+                        .compareTo(
+                                request.getRefundAmount()
+                        ) < 0
+        ) {
+
+            throw new RuntimeException(
+                    "Insufficient balance for refund"
+            );
+        }
+
+        /*
+         * REVERSE MONEY FLOW
+         */
+        refundFromAccount.setLedgerBalance(
+                refundFromAccount
+                        .getLedgerBalance()
+                        .subtract(
+                                request.getRefundAmount()
+                        )
+        );
+
+        refundFromAccount.setAvailableBalance(
+                refundFromAccount
+                        .getAvailableBalance()
+                        .subtract(
+                                request.getRefundAmount()
+                        )
+        );
+
+        refundToAccount.setLedgerBalance(
+                refundToAccount
+                        .getLedgerBalance()
+                        .add(
+                                request.getRefundAmount()
+                        )
+        );
+
+        refundToAccount.setAvailableBalance(
+                refundToAccount
+                        .getAvailableBalance()
+                        .add(
+                                request.getRefundAmount()
+                        )
+        );
+
+        accountRepository.save(refundFromAccount);
+
+        accountRepository.save(refundToAccount);
+
+        /*
+         * CREATE REFUND TRANSACTION
+         */
+        BankTransaction refundTransaction =
+                new BankTransaction();
+
+        refundTransaction.setAccountNumber(
+                refundFromAccount.getAccountNumber()
+        );
+
+        refundTransaction.setToAccountNumber(
+                refundToAccount.getAccountNumber()
+        );
+
+        refundTransaction.setAmount(
+                request.getRefundAmount()
+        );
+
+        refundTransaction.setDescription(
+                "REFUND : "
+                        + originalTransaction
+                        .getReferenceNumber()
+        );
+
+        refundTransaction.setTransactionType(
+                TransactionType.REFUND
+        );
+
+        refundTransaction.setStatus(
+                TransactionStatus.SUCCESS
+        );
+
+        refundTransaction.setReferenceNumber(
+                UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 16)
+                        .toUpperCase()
+        );
+
+        refundTransaction
+                .setOriginalTransactionReference(
+                        originalTransaction
+                                .getReferenceNumber()
+                );
+
+        refundTransaction
+                .setReversalTransaction(false);
+
+        refundTransaction.setRefundedAmount(
+                BigDecimal.ZERO
+        );
+
+        bankTransactionRepository
+                .save(refundTransaction);
+
+        /*
+         * UPDATE REFUNDED AMOUNT
+         */
+        originalTransaction.setRefundedAmount(
+                originalTransaction
+                        .getRefundedAmount()
+                        .add(
+                                request.getRefundAmount()
+                        )
+        );
+
+        /*
+         * MARK FULLY REFUNDED
+         */
+        if (
+                originalTransaction
+                        .getRefundedAmount()
+                        .compareTo(
+                                originalTransaction
+                                        .getAmount()
+                        ) == 0
+        ) {
+
+            originalTransaction.setStatus(
+                    TransactionStatus.REFUNDED
+            );
+        }
+
+        bankTransactionRepository
+                .save(originalTransaction);
+
+        return "Refund processed successfully";
+    }
+
+
 }

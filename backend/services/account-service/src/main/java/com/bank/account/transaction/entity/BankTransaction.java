@@ -89,4 +89,11 @@ public class BankTransaction {
         this.updatedAt =
                 LocalDateTime.now();
     }
+
+    @Column(
+            name = "refunded_amount",
+            nullable = false
+    )
+    private BigDecimal refundedAmount =
+            BigDecimal.ZERO;
 }
