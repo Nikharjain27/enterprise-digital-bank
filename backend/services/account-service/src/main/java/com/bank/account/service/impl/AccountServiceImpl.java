@@ -5,20 +5,22 @@ import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.entity.Account;
 import com.bank.account.enums.AccountStatus;
 import com.bank.account.exception.BaseException;
+import com.bank.account.idempotency.entity.IdempotencyRecord;
+import com.bank.account.idempotency.repository.IdempotencyRepository;
 import com.bank.account.repository.AccountRepository;
 import com.bank.account.service.AccountService;
-import com.bank.account.transaction.dto.TransferRequest;
-import com.bank.account.util.AccountNumberGenerator;
-import com.bank.account.util.IfscGenerator;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import com.bank.account.transaction.dto.TransactionRequest;
 import com.bank.account.transaction.dto.TransactionResponse;
+import com.bank.account.transaction.dto.TransferRequest;
 import com.bank.account.transaction.entity.BankTransaction;
 import com.bank.account.transaction.enums.TransactionType;
 import com.bank.account.transaction.repository.BankTransactionRepository;
+import com.bank.account.util.AccountNumberGenerator;
+import com.bank.account.util.IfscGenerator;
 import com.bank.account.util.TransactionReferenceGenerator;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,14 +31,19 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
 
-    private final AccountNumberGenerator accountNumberGenerator;
+    private final BankTransactionRepository
+            bankTransactionRepository;
+
+    private final AccountNumberGenerator
+            accountNumberGenerator;
 
     private final IfscGenerator ifscGenerator;
 
-    private final BankTransactionRepository bankTransactionRepository;
-
     private final TransactionReferenceGenerator
             transactionReferenceGenerator;
+
+    private final IdempotencyRepository
+            idempotencyRepository;
 
     @Override
     public AccountResponse createAccount(
@@ -44,11 +51,14 @@ public class AccountServiceImpl implements AccountService {
     ) {
 
         String accountNumber =
-                accountNumberGenerator.generateAccountNumber();
+                accountNumberGenerator
+                        .generateAccountNumber();
 
-        while (accountRepository.existsByAccountNumber(
-                accountNumber
-        )) {
+        while (
+                accountRepository.existsByAccountNumber(
+                        accountNumber
+                )
+        ) {
 
             accountNumber =
                     accountNumberGenerator
@@ -64,8 +74,12 @@ public class AccountServiceImpl implements AccountService {
                 .availableBalance(BigDecimal.ZERO)
                 .holdBalance(BigDecimal.ZERO)
                 .currency("INR")
-                .ifscCode(ifscGenerator.generateIfscCode())
-                .branchCode(ifscGenerator.generateBranchCode())
+                .ifscCode(
+                        ifscGenerator.generateIfscCode()
+                )
+                .branchCode(
+                        ifscGenerator.generateBranchCode()
+                )
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -74,16 +88,36 @@ public class AccountServiceImpl implements AccountService {
                 accountRepository.save(account);
 
         return AccountResponse.builder()
-                .accountNumber(savedAccount.getAccountNumber())
-                .customerId(savedAccount.getCustomerId())
-                .accountType(savedAccount.getAccountType())
-                .status(savedAccount.getStatus())
-                .ledgerBalance(savedAccount.getLedgerBalance())
-                .availableBalance(savedAccount.getAvailableBalance())
-                .holdBalance(savedAccount.getHoldBalance())
-                .currency(savedAccount.getCurrency())
-                .ifscCode(savedAccount.getIfscCode())
-                .branchCode(savedAccount.getBranchCode())
+                .accountNumber(
+                        savedAccount.getAccountNumber()
+                )
+                .customerId(
+                        savedAccount.getCustomerId()
+                )
+                .accountType(
+                        savedAccount.getAccountType()
+                )
+                .status(
+                        savedAccount.getStatus()
+                )
+                .ledgerBalance(
+                        savedAccount.getLedgerBalance()
+                )
+                .availableBalance(
+                        savedAccount.getAvailableBalance()
+                )
+                .holdBalance(
+                        savedAccount.getHoldBalance()
+                )
+                .currency(
+                        savedAccount.getCurrency()
+                )
+                .ifscCode(
+                        savedAccount.getIfscCode()
+                )
+                .branchCode(
+                        savedAccount.getBranchCode()
+                )
                 .build();
     }
 
@@ -99,7 +133,8 @@ public class AccountServiceImpl implements AccountService {
                                 request.getAccountNumber()
                         )
                         .orElseThrow(() ->
-                                new RuntimeException(
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
                                         "Account not found"
                                 )
                         );
@@ -114,7 +149,9 @@ public class AccountServiceImpl implements AccountService {
                         .add(request.getAmount())
         );
 
-        account.setUpdatedAt(LocalDateTime.now());
+        account.setUpdatedAt(
+                LocalDateTime.now()
+        );
 
         accountRepository.save(account);
 
@@ -124,11 +161,17 @@ public class AccountServiceImpl implements AccountService {
 
         BankTransaction transaction =
                 BankTransaction.builder()
-                        .accountNumber(account.getAccountNumber())
-                        .transactionType(TransactionType.DEPOSIT)
+                        .accountNumber(
+                                account.getAccountNumber()
+                        )
+                        .transactionType(
+                                TransactionType.DEPOSIT
+                        )
                         .amount(request.getAmount())
                         .referenceNumber(reference)
-                        .description(request.getDescription())
+                        .description(
+                                request.getDescription()
+                        )
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
@@ -137,10 +180,16 @@ public class AccountServiceImpl implements AccountService {
 
         return TransactionResponse.builder()
                 .referenceNumber(reference)
-                .accountNumber(account.getAccountNumber())
-                .transactionType(TransactionType.DEPOSIT)
+                .accountNumber(
+                        account.getAccountNumber()
+                )
+                .transactionType(
+                        TransactionType.DEPOSIT
+                )
                 .amount(request.getAmount())
-                .updatedBalance(account.getAvailableBalance())
+                .updatedBalance(
+                        account.getAvailableBalance()
+                )
                 .message("Deposit successful")
                 .build();
     }
@@ -163,8 +212,12 @@ public class AccountServiceImpl implements AccountService {
                                 )
                         );
 
-        if (account.getAvailableBalance()
-                .compareTo(request.getAmount()) < 0) {
+        if (
+                account.getAvailableBalance()
+                        .compareTo(
+                                request.getAmount()
+                        ) < 0
+        ) {
 
             throw new BaseException(
                     "INSUFFICIENT_BALANCE",
@@ -182,7 +235,9 @@ public class AccountServiceImpl implements AccountService {
                         .subtract(request.getAmount())
         );
 
-        account.setUpdatedAt(LocalDateTime.now());
+        account.setUpdatedAt(
+                LocalDateTime.now()
+        );
 
         accountRepository.save(account);
 
@@ -192,11 +247,17 @@ public class AccountServiceImpl implements AccountService {
 
         BankTransaction transaction =
                 BankTransaction.builder()
-                        .accountNumber(account.getAccountNumber())
-                        .transactionType(TransactionType.WITHDRAWAL)
+                        .accountNumber(
+                                account.getAccountNumber()
+                        )
+                        .transactionType(
+                                TransactionType.WITHDRAWAL
+                        )
                         .amount(request.getAmount())
                         .referenceNumber(reference)
-                        .description(request.getDescription())
+                        .description(
+                                request.getDescription()
+                        )
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
@@ -205,10 +266,16 @@ public class AccountServiceImpl implements AccountService {
 
         return TransactionResponse.builder()
                 .referenceNumber(reference)
-                .accountNumber(account.getAccountNumber())
-                .transactionType(TransactionType.WITHDRAWAL)
+                .accountNumber(
+                        account.getAccountNumber()
+                )
+                .transactionType(
+                        TransactionType.WITHDRAWAL
+                )
                 .amount(request.getAmount())
-                .updatedBalance(account.getAvailableBalance())
+                .updatedBalance(
+                        account.getAvailableBalance()
+                )
                 .message("Withdrawal successful")
                 .build();
     }
@@ -216,11 +283,47 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional
     public TransactionResponse transfer(
-            TransferRequest request
+            TransferRequest request,
+            String idempotencyKey
     ) {
 
-        if (request.getFromAccount()
-                .equals(request.getToAccount())) {
+        if (
+                idempotencyKey == null
+                        || idempotencyKey.isBlank()
+        ) {
+
+            throw new BaseException(
+                    "MISSING_IDEMPOTENCY_KEY",
+                    "Idempotency key is required"
+            );
+        }
+
+        IdempotencyRecord existingRecord =
+                idempotencyRepository
+                        .findByIdempotencyKey(
+                                idempotencyKey
+                        )
+                        .orElse(null);
+
+        if (existingRecord != null) {
+
+            return TransactionResponse.builder()
+                    .referenceNumber(
+                            existingRecord
+                                    .getResponseReference()
+                    )
+                    .message(
+                            "Duplicate request prevented"
+                    )
+                    .build();
+        }
+
+        if (
+                request.getFromAccount()
+                        .equals(
+                                request.getToAccount()
+                        )
+        ) {
 
             throw new BaseException(
                     "INVALID_TRANSFER",
@@ -228,26 +331,32 @@ public class AccountServiceImpl implements AccountService {
             );
         }
 
-    /*
-        DEADLOCK PREVENTION:
-        Always lock accounts in same order
-    */
+        /*
+            DEADLOCK PREVENTION:
+            Always lock accounts in same order
+         */
 
         String firstLock =
                 request.getFromAccount()
-                        .compareTo(request.getToAccount()) < 0
+                        .compareTo(
+                                request.getToAccount()
+                        ) < 0
                         ? request.getFromAccount()
                         : request.getToAccount();
 
         String secondLock =
                 request.getFromAccount()
-                        .compareTo(request.getToAccount()) < 0
+                        .compareTo(
+                                request.getToAccount()
+                        ) < 0
                         ? request.getToAccount()
                         : request.getFromAccount();
 
         Account firstAccount =
                 accountRepository
-                        .findByAccountNumberForUpdate(firstLock)
+                        .findByAccountNumberForUpdate(
+                                firstLock
+                        )
                         .orElseThrow(() ->
                                 new BaseException(
                                         "ACCOUNT_NOT_FOUND",
@@ -257,7 +366,9 @@ public class AccountServiceImpl implements AccountService {
 
         Account secondAccount =
                 accountRepository
-                        .findByAccountNumberForUpdate(secondLock)
+                        .findByAccountNumberForUpdate(
+                                secondLock
+                        )
                         .orElseThrow(() ->
                                 new BaseException(
                                         "ACCOUNT_NOT_FOUND",
@@ -267,18 +378,26 @@ public class AccountServiceImpl implements AccountService {
 
         Account sourceAccount =
                 firstAccount.getAccountNumber()
-                        .equals(request.getFromAccount())
+                        .equals(
+                                request.getFromAccount()
+                        )
                         ? firstAccount
                         : secondAccount;
 
         Account destinationAccount =
                 firstAccount.getAccountNumber()
-                        .equals(request.getToAccount())
+                        .equals(
+                                request.getToAccount()
+                        )
                         ? firstAccount
                         : secondAccount;
 
-        if (sourceAccount.getAvailableBalance()
-                .compareTo(request.getAmount()) < 0) {
+        if (
+                sourceAccount.getAvailableBalance()
+                        .compareTo(
+                                request.getAmount()
+                        ) < 0
+        ) {
 
             throw new BaseException(
                     "INSUFFICIENT_BALANCE",
@@ -306,9 +425,13 @@ public class AccountServiceImpl implements AccountService {
                         .add(request.getAmount())
         );
 
-        sourceAccount.setUpdatedAt(LocalDateTime.now());
+        sourceAccount.setUpdatedAt(
+                LocalDateTime.now()
+        );
 
-        destinationAccount.setUpdatedAt(LocalDateTime.now());
+        destinationAccount.setUpdatedAt(
+                LocalDateTime.now()
+        );
 
         accountRepository.save(sourceAccount);
 
@@ -320,8 +443,12 @@ public class AccountServiceImpl implements AccountService {
 
         BankTransaction debitTransaction =
                 BankTransaction.builder()
-                        .accountNumber(sourceAccount.getAccountNumber())
-                        .transactionType(TransactionType.TRANSFER)
+                        .accountNumber(
+                                sourceAccount.getAccountNumber()
+                        )
+                        .transactionType(
+                                TransactionType.TRANSFER
+                        )
                         .amount(request.getAmount())
                         .referenceNumber(reference)
                         .description(
@@ -335,8 +462,13 @@ public class AccountServiceImpl implements AccountService {
 
         BankTransaction creditTransaction =
                 BankTransaction.builder()
-                        .accountNumber(destinationAccount.getAccountNumber())
-                        .transactionType(TransactionType.TRANSFER)
+                        .accountNumber(
+                                destinationAccount
+                                        .getAccountNumber()
+                        )
+                        .transactionType(
+                                TransactionType.TRANSFER
+                        )
                         .amount(request.getAmount())
                         .referenceNumber(reference)
                         .description(
@@ -348,17 +480,35 @@ public class AccountServiceImpl implements AccountService {
                         .updatedAt(LocalDateTime.now())
                         .build();
 
-        bankTransactionRepository.save(debitTransaction);
+        bankTransactionRepository
+                .save(debitTransaction);
 
-        bankTransactionRepository.save(creditTransaction);
+        bankTransactionRepository
+                .save(creditTransaction);
+
+        IdempotencyRecord record =
+                IdempotencyRecord.builder()
+                        .idempotencyKey(
+                                idempotencyKey
+                        )
+                        .responseReference(reference)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+        idempotencyRepository.save(record);
 
         return TransactionResponse.builder()
                 .referenceNumber(reference)
-                .accountNumber(sourceAccount.getAccountNumber())
-                .transactionType(TransactionType.TRANSFER)
+                .accountNumber(
+                        sourceAccount.getAccountNumber()
+                )
+                .transactionType(
+                        TransactionType.TRANSFER
+                )
                 .amount(request.getAmount())
                 .updatedBalance(
-                        sourceAccount.getAvailableBalance()
+                        sourceAccount
+                                .getAvailableBalance()
                 )
                 .message("Transfer successful")
                 .build();

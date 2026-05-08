@@ -21,6 +21,7 @@ public interface AccountService {
     );
 
     TransactionResponse transfer(
-            TransferRequest request
+            TransferRequest request,
+            String idempotencyKey
     );
 }
