@@ -24,4 +24,12 @@ public interface AccountService {
             TransferRequest request,
             String idempotencyKey
     );
+
+    void freezeAccount(
+            String accountNumber
+    );
+
+    void unfreezeAccount(
+            String accountNumber
+    );
 }

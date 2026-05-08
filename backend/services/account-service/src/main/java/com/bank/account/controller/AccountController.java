@@ -49,11 +49,10 @@ public class AccountController {
                 accountService.withdraw(request)
         );
     }
-
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> transfer(
             @Valid @RequestBody TransferRequest request,
-            @RequestHeader("X-Idempotency-Key")
+            @RequestHeader(name = "X-Idempotency-Key")
             String idempotencyKey
     ) {
 
@@ -62,6 +61,32 @@ public class AccountController {
                         request,
                         idempotencyKey
                 )
+        );
+    }
+
+    @PutMapping("/{accountNumber}/freeze")
+    public ResponseEntity<String> freezeAccount(
+            @PathVariable("accountNumber")
+            String accountNumber
+    ) {
+
+        accountService.freezeAccount(accountNumber);
+
+        return ResponseEntity.ok(
+                "Account frozen successfully"
+        );
+    }
+
+    @PutMapping("/{accountNumber}/unfreeze")
+    public ResponseEntity<String> unfreezeAccount(
+            @PathVariable("accountNumber")
+            String accountNumber
+    ) {
+
+        accountService.unfreezeAccount(accountNumber);
+
+        return ResponseEntity.ok(
+                "Account unfrozen successfully"
         );
     }
 }

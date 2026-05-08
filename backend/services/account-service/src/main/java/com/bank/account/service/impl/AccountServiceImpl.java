@@ -45,6 +45,44 @@ public class AccountServiceImpl implements AccountService {
     private final IdempotencyRepository
             idempotencyRepository;
 
+    private void validateAccountActive(
+            Account account
+    ) {
+
+        if (
+                account.getStatus()
+                        == AccountStatus.FROZEN
+        ) {
+
+            throw new BaseException(
+                    "ACCOUNT_FROZEN",
+                    "Account is frozen"
+            );
+        }
+
+        if (
+                account.getStatus()
+                        == AccountStatus.CLOSED
+        ) {
+
+            throw new BaseException(
+                    "ACCOUNT_CLOSED",
+                    "Account is closed"
+            );
+        }
+
+        if (
+                account.getStatus()
+                        == AccountStatus.DORMANT
+        ) {
+
+            throw new BaseException(
+                    "ACCOUNT_DORMANT",
+                    "Account is dormant"
+            );
+        }
+    }
+
     @Override
     public AccountResponse createAccount(
             CreateAccountRequest request
@@ -139,6 +177,8 @@ public class AccountServiceImpl implements AccountService {
                                 )
                         );
 
+        validateAccountActive(account);
+
         account.setLedgerBalance(
                 account.getLedgerBalance()
                         .add(request.getAmount())
@@ -211,6 +251,8 @@ public class AccountServiceImpl implements AccountService {
                                         "Account not found"
                                 )
                         );
+
+        validateAccountActive(account);
 
         if (
                 account.getAvailableBalance()
@@ -331,11 +373,6 @@ public class AccountServiceImpl implements AccountService {
             );
         }
 
-        /*
-            DEADLOCK PREVENTION:
-            Always lock accounts in same order
-         */
-
         String firstLock =
                 request.getFromAccount()
                         .compareTo(
@@ -391,6 +428,10 @@ public class AccountServiceImpl implements AccountService {
                         )
                         ? firstAccount
                         : secondAccount;
+
+        validateAccountActive(sourceAccount);
+
+        validateAccountActive(destinationAccount);
 
         if (
                 sourceAccount.getAvailableBalance()
@@ -512,5 +553,63 @@ public class AccountServiceImpl implements AccountService {
                 )
                 .message("Transfer successful")
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void freezeAccount(
+            String accountNumber
+    ) {
+
+        Account account =
+                accountRepository
+                        .findByAccountNumberForUpdate(
+                                accountNumber
+                        )
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
+                                        "Account not found"
+                                )
+                        );
+
+        account.setStatus(
+                AccountStatus.FROZEN
+        );
+
+        account.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        accountRepository.save(account);
+    }
+
+    @Override
+    @Transactional
+    public void unfreezeAccount(
+            String accountNumber
+    ) {
+
+        Account account =
+                accountRepository
+                        .findByAccountNumberForUpdate(
+                                accountNumber
+                        )
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
+                                        "Account not found"
+                                )
+                        );
+
+        account.setStatus(
+                AccountStatus.ACTIVE
+        );
+
+        account.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        accountRepository.save(account);
     }
 }
