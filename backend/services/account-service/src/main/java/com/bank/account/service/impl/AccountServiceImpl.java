@@ -7,6 +7,7 @@ import com.bank.account.enums.AccountStatus;
 import com.bank.account.exception.BaseException;
 import com.bank.account.repository.AccountRepository;
 import com.bank.account.service.AccountService;
+import com.bank.account.transaction.dto.TransferRequest;
 import com.bank.account.util.AccountNumberGenerator;
 import com.bank.account.util.IfscGenerator;
 import lombok.RequiredArgsConstructor;
@@ -209,6 +210,157 @@ public class AccountServiceImpl implements AccountService {
                 .amount(request.getAmount())
                 .updatedBalance(account.getAvailableBalance())
                 .message("Withdrawal successful")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TransactionResponse transfer(
+            TransferRequest request
+    ) {
+
+        if (request.getFromAccount()
+                .equals(request.getToAccount())) {
+
+            throw new BaseException(
+                    "INVALID_TRANSFER",
+                    "Cannot transfer to same account"
+            );
+        }
+
+    /*
+        DEADLOCK PREVENTION:
+        Always lock accounts in same order
+    */
+
+        String firstLock =
+                request.getFromAccount()
+                        .compareTo(request.getToAccount()) < 0
+                        ? request.getFromAccount()
+                        : request.getToAccount();
+
+        String secondLock =
+                request.getFromAccount()
+                        .compareTo(request.getToAccount()) < 0
+                        ? request.getToAccount()
+                        : request.getFromAccount();
+
+        Account firstAccount =
+                accountRepository
+                        .findByAccountNumberForUpdate(firstLock)
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
+                                        "Account not found"
+                                )
+                        );
+
+        Account secondAccount =
+                accountRepository
+                        .findByAccountNumberForUpdate(secondLock)
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "ACCOUNT_NOT_FOUND",
+                                        "Account not found"
+                                )
+                        );
+
+        Account sourceAccount =
+                firstAccount.getAccountNumber()
+                        .equals(request.getFromAccount())
+                        ? firstAccount
+                        : secondAccount;
+
+        Account destinationAccount =
+                firstAccount.getAccountNumber()
+                        .equals(request.getToAccount())
+                        ? firstAccount
+                        : secondAccount;
+
+        if (sourceAccount.getAvailableBalance()
+                .compareTo(request.getAmount()) < 0) {
+
+            throw new BaseException(
+                    "INSUFFICIENT_BALANCE",
+                    "Insufficient balance"
+            );
+        }
+
+        sourceAccount.setLedgerBalance(
+                sourceAccount.getLedgerBalance()
+                        .subtract(request.getAmount())
+        );
+
+        sourceAccount.setAvailableBalance(
+                sourceAccount.getAvailableBalance()
+                        .subtract(request.getAmount())
+        );
+
+        destinationAccount.setLedgerBalance(
+                destinationAccount.getLedgerBalance()
+                        .add(request.getAmount())
+        );
+
+        destinationAccount.setAvailableBalance(
+                destinationAccount.getAvailableBalance()
+                        .add(request.getAmount())
+        );
+
+        sourceAccount.setUpdatedAt(LocalDateTime.now());
+
+        destinationAccount.setUpdatedAt(LocalDateTime.now());
+
+        accountRepository.save(sourceAccount);
+
+        accountRepository.save(destinationAccount);
+
+        String reference =
+                transactionReferenceGenerator
+                        .generateReference();
+
+        BankTransaction debitTransaction =
+                BankTransaction.builder()
+                        .accountNumber(sourceAccount.getAccountNumber())
+                        .transactionType(TransactionType.TRANSFER)
+                        .amount(request.getAmount())
+                        .referenceNumber(reference)
+                        .description(
+                                "Transfer to "
+                                        + destinationAccount
+                                        .getAccountNumber()
+                        )
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+        BankTransaction creditTransaction =
+                BankTransaction.builder()
+                        .accountNumber(destinationAccount.getAccountNumber())
+                        .transactionType(TransactionType.TRANSFER)
+                        .amount(request.getAmount())
+                        .referenceNumber(reference)
+                        .description(
+                                "Transfer from "
+                                        + sourceAccount
+                                        .getAccountNumber()
+                        )
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+        bankTransactionRepository.save(debitTransaction);
+
+        bankTransactionRepository.save(creditTransaction);
+
+        return TransactionResponse.builder()
+                .referenceNumber(reference)
+                .accountNumber(sourceAccount.getAccountNumber())
+                .transactionType(TransactionType.TRANSFER)
+                .amount(request.getAmount())
+                .updatedBalance(
+                        sourceAccount.getAvailableBalance()
+                )
+                .message("Transfer successful")
                 .build();
     }
 }

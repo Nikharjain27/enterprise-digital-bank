@@ -36,8 +36,7 @@ public class BankTransaction extends BaseEntity {
     private BigDecimal amount;
 
     @Column(name = "reference_number",
-            nullable = false,
-            unique = true)
+            nullable = false)
     private String referenceNumber;
 
     @Column(name = "description")

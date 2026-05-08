@@ -4,6 +4,7 @@ import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.transaction.dto.TransactionRequest;
 import com.bank.account.transaction.dto.TransactionResponse;
+import com.bank.account.transaction.dto.TransferRequest;
 
 public interface AccountService {
 
@@ -17,5 +18,9 @@ public interface AccountService {
 
     TransactionResponse withdraw(
             TransactionRequest request
+    );
+
+    TransactionResponse transfer(
+            TransferRequest request
     );
 }

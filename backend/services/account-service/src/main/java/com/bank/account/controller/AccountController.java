@@ -5,6 +5,7 @@ import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.service.AccountService;
 import com.bank.account.transaction.dto.TransactionRequest;
 import com.bank.account.transaction.dto.TransactionResponse;
+import com.bank.account.transaction.dto.TransferRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,16 @@ public class AccountController {
 
         return ResponseEntity.ok(
                 accountService.withdraw(request)
+        );
+    }
+
+    @PostMapping("/transfer")
+    public ResponseEntity<TransactionResponse> transfer(
+            @Valid @RequestBody TransferRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.transfer(request)
         );
     }
 }
