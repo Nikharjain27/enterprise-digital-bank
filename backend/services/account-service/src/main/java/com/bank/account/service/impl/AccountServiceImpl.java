@@ -24,6 +24,12 @@ import org.springframework.stereotype.Service;
 import com.bank.account.transaction.dto.StatementResponse;
 import com.bank.account.transaction.enums.TransactionType;
 import org.springframework.data.domain.PageRequest;
+import com.bank.account.beneficiary.dto.AddBeneficiaryRequest;
+import com.bank.account.beneficiary.dto.BeneficiaryResponse;
+import com.bank.account.beneficiary.entity.Beneficiary;
+import com.bank.account.beneficiary.repository.BeneficiaryRepository;
+
+import java.util.stream.Collectors;
 
 import java.util.List;
 
@@ -49,6 +55,9 @@ public class AccountServiceImpl implements AccountService {
 
     private final IdempotencyRepository
             idempotencyRepository;
+
+    private final BeneficiaryRepository
+            beneficiaryRepository;
 
     private void validateAccountActive(
             Account account
@@ -727,5 +736,116 @@ public class AccountServiceImpl implements AccountService {
                                 .build()
                 )
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public BeneficiaryResponse addBeneficiary(
+            AddBeneficiaryRequest request
+    ) {
+
+        if (
+                request.getCustomerAccount()
+                        .equals(
+                                request.getBeneficiaryAccount()
+                        )
+        ) {
+
+            throw new BaseException(
+                    "INVALID_BENEFICIARY",
+                    "Cannot add same account"
+            );
+        }
+
+        beneficiaryRepository
+                .findByCustomerAccountAndBeneficiaryAccount(
+                        request.getCustomerAccount(),
+                        request.getBeneficiaryAccount()
+                )
+                .ifPresent(existing -> {
+
+                    throw new BaseException(
+                            "BENEFICIARY_EXISTS",
+                            "Beneficiary already exists"
+                    );
+                });
+
+        Beneficiary beneficiary =
+                Beneficiary.builder()
+                        .customerAccount(
+                                request.getCustomerAccount()
+                        )
+                        .beneficiaryAccount(
+                                request.getBeneficiaryAccount()
+                        )
+                        .beneficiaryName(
+                                request.getBeneficiaryName()
+                        )
+                        .ifscCode(
+                                request.getIfscCode()
+                        )
+                        .active(false)
+                        .activationTime(
+                                LocalDateTime.now()
+                                        .plusMinutes(30)
+                        )
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+        beneficiaryRepository.save(beneficiary);
+
+        return BeneficiaryResponse.builder()
+                .beneficiaryAccount(
+                        beneficiary.getBeneficiaryAccount()
+                )
+                .beneficiaryName(
+                        beneficiary.getBeneficiaryName()
+                )
+                .ifscCode(
+                        beneficiary.getIfscCode()
+                )
+                .active(
+                        beneficiary.isActive()
+                )
+                .activationTime(
+                        beneficiary.getActivationTime()
+                )
+                .build();
+    }
+
+    @Override
+    public List<BeneficiaryResponse> getBeneficiaries(
+            String customerAccount
+    ) {
+
+        return beneficiaryRepository
+                .findByCustomerAccount(
+                        customerAccount
+                )
+                .stream()
+                .map(beneficiary ->
+                        BeneficiaryResponse.builder()
+                                .beneficiaryAccount(
+                                        beneficiary
+                                                .getBeneficiaryAccount()
+                                )
+                                .beneficiaryName(
+                                        beneficiary
+                                                .getBeneficiaryName()
+                                )
+                                .ifscCode(
+                                        beneficiary
+                                                .getIfscCode()
+                                )
+                                .active(
+                                        beneficiary.isActive()
+                                )
+                                .activationTime(
+                                        beneficiary
+                                                .getActivationTime()
+                                )
+                                .build()
+                )
+                .collect(Collectors.toList());
     }
 }

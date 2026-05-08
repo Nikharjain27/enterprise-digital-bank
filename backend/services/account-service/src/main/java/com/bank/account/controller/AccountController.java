@@ -1,18 +1,20 @@
 package com.bank.account.controller;
 
+import com.bank.account.beneficiary.dto.AddBeneficiaryRequest;
+import com.bank.account.beneficiary.dto.BeneficiaryResponse;
 import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.service.AccountService;
+import com.bank.account.transaction.dto.StatementResponse;
 import com.bank.account.transaction.dto.TransactionRequest;
 import com.bank.account.transaction.dto.TransactionResponse;
 import com.bank.account.transaction.dto.TransferRequest;
+import com.bank.account.transaction.enums.TransactionType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.bank.account.transaction.dto.StatementResponse;
-import com.bank.account.transaction.enums.TransactionType;
 
 import java.util.List;
 
@@ -53,6 +55,7 @@ public class AccountController {
                 accountService.withdraw(request)
         );
     }
+
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> transfer(
             @Valid @RequestBody TransferRequest request,
@@ -136,6 +139,34 @@ public class AccountController {
                 accountService.getStatementByType(
                         accountNumber,
                         type
+                )
+        );
+    }
+
+    @PostMapping("/beneficiaries")
+    public ResponseEntity<BeneficiaryResponse>
+    addBeneficiary(
+            @Valid
+            @RequestBody
+            AddBeneficiaryRequest request
+    ) {
+
+        return new ResponseEntity<>(
+                accountService.addBeneficiary(request),
+                HttpStatus.CREATED
+        );
+    }
+
+    @GetMapping("/{accountNumber}/beneficiaries")
+    public ResponseEntity<List<BeneficiaryResponse>>
+    getBeneficiaries(
+            @PathVariable("accountNumber")
+            String accountNumber
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.getBeneficiaries(
+                        accountNumber
                 )
         );
     }
