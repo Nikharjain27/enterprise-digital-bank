@@ -1,0 +1,4 @@
+packages:
+  - "admin-portal"
+  - "customer-portal"
+  - "shared-portal"
