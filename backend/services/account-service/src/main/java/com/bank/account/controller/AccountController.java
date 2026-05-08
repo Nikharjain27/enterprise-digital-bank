@@ -11,6 +11,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.bank.account.transaction.dto.StatementResponse;
+import com.bank.account.transaction.enums.TransactionType;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -87,6 +91,52 @@ public class AccountController {
 
         return ResponseEntity.ok(
                 "Account unfrozen successfully"
+        );
+    }
+
+    @GetMapping("/{accountNumber}/statement")
+    public ResponseEntity<List<StatementResponse>>
+    getStatement(
+            @PathVariable("accountNumber")
+            String accountNumber
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.getStatement(
+                        accountNumber
+                )
+        );
+    }
+
+    @GetMapping("/{accountNumber}/mini-statement")
+    public ResponseEntity<List<StatementResponse>>
+    getMiniStatement(
+            @PathVariable("accountNumber")
+            String accountNumber
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.getMiniStatement(
+                        accountNumber
+                )
+        );
+    }
+
+    @GetMapping("/{accountNumber}/statement/type/{type}")
+    public ResponseEntity<List<StatementResponse>>
+    getStatementByType(
+            @PathVariable("accountNumber")
+            String accountNumber,
+
+            @PathVariable("type")
+            TransactionType type
+    ) {
+
+        return ResponseEntity.ok(
+                accountService.getStatementByType(
+                        accountNumber,
+                        type
+                )
         );
     }
 }

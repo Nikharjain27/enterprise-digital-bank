@@ -21,6 +21,11 @@ import com.bank.account.util.TransactionReferenceGenerator;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.bank.account.transaction.dto.StatementResponse;
+import com.bank.account.transaction.enums.TransactionType;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -611,5 +616,116 @@ public class AccountServiceImpl implements AccountService {
         );
 
         accountRepository.save(account);
+    }
+
+    @Override
+    public List<StatementResponse> getStatement(
+            String accountNumber
+    ) {
+
+        List<BankTransaction> transactions =
+                bankTransactionRepository
+                        .findByAccountNumberOrderByCreatedAtDesc(
+                                accountNumber
+                        );
+
+        return transactions.stream()
+                .map(transaction ->
+                        StatementResponse.builder()
+                                .referenceNumber(
+                                        transaction
+                                                .getReferenceNumber()
+                                )
+                                .transactionType(
+                                        transaction
+                                                .getTransactionType()
+                                )
+                                .amount(
+                                        transaction.getAmount()
+                                )
+                                .description(
+                                        transaction.getDescription()
+                                )
+                                .transactionTime(
+                                        transaction.getCreatedAt()
+                                )
+                                .build()
+                )
+                .toList();
+    }
+
+    @Override
+    public List<StatementResponse> getMiniStatement(
+            String accountNumber
+    ) {
+
+        List<BankTransaction> transactions =
+                bankTransactionRepository
+                        .findByAccountNumberOrderByCreatedAtDesc(
+                                accountNumber,
+                                PageRequest.of(0, 5)
+                        );
+
+        return transactions.stream()
+                .map(transaction ->
+                        StatementResponse.builder()
+                                .referenceNumber(
+                                        transaction
+                                                .getReferenceNumber()
+                                )
+                                .transactionType(
+                                        transaction
+                                                .getTransactionType()
+                                )
+                                .amount(
+                                        transaction.getAmount()
+                                )
+                                .description(
+                                        transaction.getDescription()
+                                )
+                                .transactionTime(
+                                        transaction.getCreatedAt()
+                                )
+                                .build()
+                )
+                .toList();
+    }
+
+    @Override
+    public List<StatementResponse> getStatementByType(
+            String accountNumber,
+            TransactionType transactionType
+    ) {
+
+        List<BankTransaction> transactions =
+                bankTransactionRepository
+                        .findByAccountNumberAndTransactionTypeOrderByCreatedAtDesc(
+                                accountNumber,
+                                transactionType
+                        );
+
+        return transactions.stream()
+                .map(transaction ->
+                        StatementResponse.builder()
+                                .referenceNumber(
+                                        transaction
+                                                .getReferenceNumber()
+                                )
+                                .transactionType(
+                                        transaction
+                                                .getTransactionType()
+                                )
+                                .amount(
+                                        transaction.getAmount()
+                                )
+                                .description(
+                                        transaction.getDescription()
+                                )
+                                .transactionTime(
+                                        transaction.getCreatedAt()
+                                )
+                                .build()
+                )
+                .toList();
     }
 }
