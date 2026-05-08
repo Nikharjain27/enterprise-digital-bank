@@ -81,10 +81,10 @@ public class SecurityConfig {
 
                 .userDetailsService(userDetailsService)
 
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
+//                .addFilterBefore(
+//                        jwtAuthenticationFilter,
+//                        UsernamePasswordAuthenticationFilter.class
+//                )
 
                 .httpBasic(Customizer.withDefaults());
 
