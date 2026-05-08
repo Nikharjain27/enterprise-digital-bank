@@ -5,6 +5,8 @@ import CssBaseline from "@mui/material/CssBaseline";
 
 import { appTheme } from "./theme/theme";
 
+import "./api/interceptors";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider theme={appTheme}>
