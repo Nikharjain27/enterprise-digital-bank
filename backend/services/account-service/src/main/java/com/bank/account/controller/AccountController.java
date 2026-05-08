@@ -15,16 +15,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
 @RequiredArgsConstructor
+@Tag(
+        name = "Account APIs",
+        description = "Enterprise banking account operations"
+)
 public class AccountController {
 
     private final AccountService accountService;
 
+    @Operation(
+            summary = "Create new bank account",
+            description = "Creates a new banking account for customer"
+    )
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(
             @Valid @RequestBody CreateAccountRequest request
@@ -36,6 +46,7 @@ public class AccountController {
         );
     }
 
+    @Operation(summary = "Deposit money")
     @PostMapping("/deposit")
     public ResponseEntity<TransactionResponse> deposit(
             @Valid @RequestBody TransactionRequest request
@@ -45,7 +56,7 @@ public class AccountController {
                 accountService.deposit(request)
         );
     }
-
+    @Operation(summary = "Withdraw money")
     @PostMapping("/withdraw")
     public ResponseEntity<TransactionResponse> withdraw(
             @Valid @RequestBody TransactionRequest request
@@ -56,6 +67,7 @@ public class AccountController {
         );
     }
 
+    @Operation(summary = "Transfer funds securely")
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> transfer(
             @Valid @RequestBody TransferRequest request,
@@ -71,6 +83,7 @@ public class AccountController {
         );
     }
 
+    @Operation(summary = "Freeze account")
     @PutMapping("/{accountNumber}/freeze")
     public ResponseEntity<String> freezeAccount(
             @PathVariable("accountNumber")
@@ -97,6 +110,7 @@ public class AccountController {
         );
     }
 
+    @Operation(summary = "Get account statement")
     @GetMapping("/{accountNumber}/statement")
     public ResponseEntity<List<StatementResponse>>
     getStatement(
@@ -143,6 +157,7 @@ public class AccountController {
         );
     }
 
+    @Operation(summary = "Add beneficiary")
     @PostMapping("/beneficiaries")
     public ResponseEntity<BeneficiaryResponse>
     addBeneficiary(

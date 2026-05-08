@@ -1,5 +1,9 @@
 package com.bank.account.service.impl;
 
+import com.bank.account.beneficiary.dto.AddBeneficiaryRequest;
+import com.bank.account.beneficiary.dto.BeneficiaryResponse;
+import com.bank.account.beneficiary.entity.Beneficiary;
+import com.bank.account.beneficiary.repository.BeneficiaryRepository;
 import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.entity.Account;
@@ -9,6 +13,7 @@ import com.bank.account.idempotency.entity.IdempotencyRecord;
 import com.bank.account.idempotency.repository.IdempotencyRepository;
 import com.bank.account.repository.AccountRepository;
 import com.bank.account.service.AccountService;
+import com.bank.account.transaction.dto.StatementResponse;
 import com.bank.account.transaction.dto.TransactionRequest;
 import com.bank.account.transaction.dto.TransactionResponse;
 import com.bank.account.transaction.dto.TransferRequest;
@@ -20,25 +25,21 @@ import com.bank.account.util.IfscGenerator;
 import com.bank.account.util.TransactionReferenceGenerator;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import com.bank.account.transaction.dto.StatementResponse;
-import com.bank.account.transaction.enums.TransactionType;
 import org.springframework.data.domain.PageRequest;
-import com.bank.account.beneficiary.dto.AddBeneficiaryRequest;
-import com.bank.account.beneficiary.dto.BeneficiaryResponse;
-import com.bank.account.beneficiary.entity.Beneficiary;
-import com.bank.account.beneficiary.repository.BeneficiaryRepository;
-
-import java.util.stream.Collectors;
-
-import java.util.List;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
+
+    private static final BigDecimal
+            DAILY_TRANSFER_LIMIT =
+            BigDecimal.valueOf(10000);
 
     private final AccountRepository accountRepository;
 
@@ -93,6 +94,44 @@ public class AccountServiceImpl implements AccountService {
             throw new BaseException(
                     "ACCOUNT_DORMANT",
                     "Account is dormant"
+            );
+        }
+    }
+
+    private void validateDailyTransferLimit(
+            String accountNumber,
+            BigDecimal transferAmount
+    ) {
+
+        LocalDateTime startOfDay =
+                LocalDateTime.now()
+                        .toLocalDate()
+                        .atStartOfDay();
+
+        LocalDateTime endOfDay =
+                startOfDay.plusDays(1);
+
+        BigDecimal todayTotal =
+                bankTransactionRepository
+                        .getTodayTransactionTotal(
+                                accountNumber,
+                                TransactionType.TRANSFER,
+                                startOfDay,
+                                endOfDay
+                        );
+
+        BigDecimal projectedTotal =
+                todayTotal.add(transferAmount);
+
+        if (
+                projectedTotal.compareTo(
+                        DAILY_TRANSFER_LIMIT
+                ) > 0
+        ) {
+
+            throw new BaseException(
+                    "DAILY_TRANSFER_LIMIT_EXCEEDED",
+                    "Daily transfer limit exceeded"
             );
         }
     }
@@ -446,6 +485,47 @@ public class AccountServiceImpl implements AccountService {
         validateAccountActive(sourceAccount);
 
         validateAccountActive(destinationAccount);
+
+        Beneficiary beneficiary =
+                beneficiaryRepository
+                        .findByCustomerAccountAndBeneficiaryAccount(
+                                sourceAccount.getAccountNumber(),
+                                destinationAccount.getAccountNumber()
+                        )
+                        .orElseThrow(() ->
+                                new BaseException(
+                                        "BENEFICIARY_NOT_FOUND",
+                                        "Beneficiary not added"
+                                )
+                        );
+
+        if (
+                !beneficiary.isActive()
+        ) {
+
+            if (
+                    LocalDateTime.now()
+                            .isBefore(
+                                    beneficiary
+                                            .getActivationTime()
+                            )
+            ) {
+
+                throw new BaseException(
+                        "BENEFICIARY_COOLDOWN",
+                        "Beneficiary cooling period active"
+                );
+            }
+
+            beneficiary.setActive(true);
+
+            beneficiaryRepository.save(beneficiary);
+        }
+
+        validateDailyTransferLimit(
+                sourceAccount.getAccountNumber(),
+                request.getAmount()
+        );
 
         if (
                 sourceAccount.getAvailableBalance()
