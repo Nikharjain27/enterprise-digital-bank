@@ -1,6 +1,7 @@
 package com.bank.account.transaction.entity;
 
 import com.bank.account.entity.BaseEntity;
+import com.bank.account.enums.TransactionStatus;
 import com.bank.account.transaction.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,4 +42,18 @@ public class BankTransaction extends BaseEntity {
 
     @Column(name = "description")
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TransactionStatus status =
+            TransactionStatus.SUCCESS;
+
+    @Column(name = "original_transaction_reference")
+    private String originalTransactionReference;
+
+    @Column(
+            name = "reversal_transaction",
+            nullable = false
+    )
+    private Boolean reversalTransaction = false;
 }
