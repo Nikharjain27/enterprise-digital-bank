@@ -9,12 +9,14 @@ import { store } from "./redux/store";
 
 import "./api/interceptors";
 
+import AppRoutes from "./routes/AppRoutes";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Provider store={store}>
       <ThemeProvider theme={appTheme}>
         <CssBaseline />
-        <div>Enterprise Banking Frontend Initialized</div>
+        <AppRoutes />
       </ThemeProvider>
     </Provider>
   </React.StrictMode>
