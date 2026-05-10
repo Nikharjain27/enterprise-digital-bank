@@ -1127,4 +1127,9 @@ public class AccountServiceImpl implements AccountService {
 
         return "Transfer reversed successfully";
     }
+
+    @Override
+    public List<Account> getAllAccounts() {
+        return accountRepository.findAll();
+    }
 }

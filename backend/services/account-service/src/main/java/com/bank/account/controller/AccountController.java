@@ -5,6 +5,7 @@ import com.bank.account.beneficiary.dto.BeneficiaryResponse;
 import com.bank.account.dto.AccountResponse;
 import com.bank.account.dto.CreateAccountRequest;
 import com.bank.account.dto.request.ReverseTransferRequest;
+import com.bank.account.entity.Account;
 import com.bank.account.service.AccountService;
 import com.bank.account.transaction.dto.StatementResponse;
 import com.bank.account.transaction.dto.TransactionRequest;
@@ -198,6 +199,14 @@ public class AccountController {
                 accountService.reverseTransfer(
                         request
                 )
+        );
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Account>> getAllAccounts() {
+
+        return ResponseEntity.ok(
+                accountService.getAllAccounts()
         );
     }
 }
