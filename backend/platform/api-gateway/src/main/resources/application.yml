@@ -37,3 +37,6 @@ management:
     web:
       exposure:
         include: health,info,gateway
+
+jwt:
+  secret: mysecretkeymysecretkeymysecretkey12
