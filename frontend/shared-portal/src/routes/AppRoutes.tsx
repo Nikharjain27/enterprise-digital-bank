@@ -4,6 +4,7 @@ import LoginPage from "../pages/LoginPage/LoginPage";
 import DashboardPage from "../pages/DashboardPage/DashboardPage";
 import ProtectedRoute from "./ProtectedRoute";
 import AccountsPage from "../features/accounts/pages/AccountsPage";
+import TransfersPage from "../features/transfers/pages/TransfersPage";
 
 const AppRoutes = () => {
   return (
@@ -24,6 +25,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AccountsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/transfers"
+          element={
+            <ProtectedRoute>
+              <TransfersPage />
             </ProtectedRoute>
           }
         />
