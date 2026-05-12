@@ -1,5 +1,5 @@
 import DashboardLayout
-from "../../../layouts/DashboardLayout/DashboardLayout";
+from "@layouts/DashboardLayout/DashboardLayout";
 
 import TransferForm
 from "../components/TransferForm";

@@ -1,5 +1,5 @@
 import DashboardLayout
-from "../../../layouts/DashboardLayout/DashboardLayout";
+from "@layouts/DashboardLayout/DashboardLayout";
 
 import BeneficiaryForm
 from "../components/BeneficiaryForm";
