@@ -1,26 +1,59 @@
-import { Navigate } from "react-router-dom";
+import {
+  Navigate,
+} from "react-router-dom";
 
-import { useAppSelector } from "../redux/hooks";
-
-import { getAccessToken } from "../auth/jwtUtils";
+import type {
+  ReactNode,
+} from "react";
 
 interface Props {
-  children: React.ReactElement;
+
+  children: ReactNode;
+
+  allowedRoles?: string[];
 }
 
-const ProtectedRoute = ({ children }: Props) => {
+const ProtectedRoute = ({
+  children,
+  allowedRoles,
+}: Props) => {
 
-  const isAuthenticated = useAppSelector(
-    (state) => state.auth.isAuthenticated
-  );
+  const token =
+    localStorage.getItem(
+      "token"
+    );
 
-  const token = getAccessToken();
+  const role =
+    localStorage.getItem(
+      "role"
+    );
 
-  if (!isAuthenticated && !token) {
-    return <Navigate to="/login" replace />;
+  if (!token) {
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  if (
+    allowedRoles &&
+    role &&
+    !allowedRoles.includes(role)
+  ) {
+
+    return (
+      <Navigate
+        to="/unauthorized"
+        replace
+      />
+    );
   }
 
   return children;
 };
 
-export default ProtectedRoute;
+export default
+ProtectedRoute;

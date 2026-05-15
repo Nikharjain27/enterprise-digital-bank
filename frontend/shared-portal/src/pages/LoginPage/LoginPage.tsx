@@ -36,14 +36,17 @@ const LoginPage = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const response = await loginApi(
-        data.username,
-        data.password
-      );
+      const response = await loginApi(data.username, data.password);
 
       setAccessToken(response.token);
 
-      dispatch(loginSuccess(response.token));
+      dispatch(
+        loginSuccess({
+          token: response.token,
+
+          role: response.role,
+        }),
+      );
 
       navigate("/dashboard");
     } catch (error) {
@@ -85,10 +88,7 @@ const LoginPage = () => {
               margin="normal"
               error={!!errors.username}
               helperText={errors.username?.message}
-              {...register(
-                "username",
-                loginValidation.username
-              )}
+              {...register("username", loginValidation.username)}
             />
 
             <TextField
@@ -98,10 +98,7 @@ const LoginPage = () => {
               margin="normal"
               error={!!errors.password}
               helperText={errors.password?.message}
-              {...register(
-                "password",
-                loginValidation.password
-              )}
+              {...register("password", loginValidation.password)}
             />
 
             <Button

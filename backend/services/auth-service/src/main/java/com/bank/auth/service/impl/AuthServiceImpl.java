@@ -74,21 +74,66 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(
+            LoginRequest request
+    ) {
 
         authenticationManager.authenticate(
+
                 new UsernamePasswordAuthenticationToken(
+
                         request.getUsername(),
+
                         request.getPassword()
                 )
         );
 
+        User user =
+
+                userRepository
+
+                        .findByUsername(
+                                request.getUsername()
+                        )
+
+                        .orElseThrow(
+                                () -> new BaseException(
+                                        "USER_NOT_FOUND",
+                                        "User not found"
+                                )
+                        );
+
+        String role =
+
+                user.getRoles()
+
+                        .stream()
+
+                        .findFirst()
+
+                        .get()
+
+                        .getName()
+
+                        .name();
+
         String token =
-                jwtUtil.generateToken(request.getUsername());
+
+                jwtUtil.generateToken(
+
+                        user.getUsername(),
+
+                        role
+                );
 
         return AuthResponse.builder()
+
                 .message("Login successful")
+
                 .token(token)
+
+                .role(role)
+
                 .build();
     }
 }
